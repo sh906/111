@@ -192,10 +192,10 @@
 
       @keyframes pulsate-bar-glow {
         0%, 100% {
-          box-shadow: 0 0 2px 0px rgba(217, 70, 239, 0.7);
+          box-shadow: 0 0 4px 1px rgba(217, 70, 239, 0.4);
         }
         50% {
-          box-shadow: 0 0 3px 0px rgba(217, 70, 239, 0.9);
+          box-shadow: 0 0 7px 2px rgba(217, 70, 239, 0.7);
         }
       }
       .animate-bar-glow {
@@ -219,6 +219,8 @@
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import ReactDOM from 'react-dom/client';
 
+const API_URL = 'http://localhost:5000/api';
+
 // === components/Icons.jsx ===
 const AddIcon = ({ className }) => (
   <svg className={className} xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor">
@@ -226,8 +228,129 @@ const AddIcon = ({ className }) => (
   </svg>
 );
 
+// === components/AuthScreen.jsx ===
+const AuthScreen = ({ onAuthSuccess }) => {
+  const [isLoginMode, setIsLoginMode] = useState(true);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError('');
+    setSuccess('');
+    setIsLoading(true);
+
+    if (!username.trim() || !password.trim()) {
+      setError('// Username and password required');
+      setIsLoading(false);
+      return;
+    }
+
+    const endpoint = isLoginMode ? '/auth/login' : '/auth/register';
+    const body = JSON.stringify({ username, password });
+
+    try {
+      const response = await fetch(`${API_URL}${endpoint}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body,
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Authentication failed');
+      }
+      
+      if (isLoginMode) {
+        onAuthSuccess({ token: data.token, username });
+      } else {
+        setSuccess('// Registration successful. Logging in...');
+        // Automatically log in after successful registration
+        const loginResponse = await fetch(`${API_URL}/auth/login`, {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json' },
+           body,
+        });
+        const loginData = await loginResponse.json();
+        if(!loginResponse.ok) throw new Error(loginData.message || 'Auto-login failed');
+        setTimeout(() => onAuthSuccess({ token: loginData.token, username }), 1500);
+      }
+    } catch (err) {
+      setError(`// ${err.message}`);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  return (
+    <main className="min-h-screen flex flex-col items-center justify-center text-cyan-300 p-4">
+      <div className="w-full max-w-md z-10 main-panel-container">
+        <div className="bg-[#01020d]/80 backdrop-blur-xl p-6 md:p-8">
+          <header className="text-center mb-6">
+            <h1 className="text-2xl md:text-3xl font-bold font-orbitron text-glow text-cyan-300 animate-flicker">
+              AGENT AUTHENTICATION
+            </h1>
+            <p className="text-fuchsia-400 mt-2 text-sm animate-flicker">
+              {isLoginMode ? '// SECURE LOGIN' : '// REGISTER NEW AGENT'}
+            </p>
+          </header>
+          <form onSubmit={handleSubmit}>
+            <div className="mb-4">
+              <label className="block text-fuchsia-400 mb-2 text-xs" htmlFor="username">// AGENT ID</label>
+              <input
+                id="username"
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full bg-gray-900/70 border border-fuchsia-500/50 text-fuchsia-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-fuchsia-400 focus:border-transparent transition-all"
+                autoComplete="username"
+                disabled={isLoading}
+              />
+            </div>
+            <div className="mb-6">
+              <label className="block text-cyan-400 mb-2 text-xs" htmlFor="password">// PASSWORD</label>
+              <input
+                id="password"
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full bg-gray-900/70 border border-cyan-500/50 text-cyan-300 px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-cyan-400 focus:border-transparent transition-all"
+                autoComplete={isLoginMode ? "current-password" : "new-password"}
+                disabled={isLoading}
+              />
+            </div>
+            {error && <p className="text-red-500 text-center text-sm mb-4 animate-flicker">{error}</p>}
+            {success && <p className="text-green-500 text-center text-sm mb-4 animate-flicker">{success}</p>}
+            <div className="flex flex-col items-center gap-4">
+              <button
+                type="submit"
+                disabled={isLoading}
+                className="w-full px-4 py-2 bg-cyan-500/20 border-2 border-cyan-500 text-cyan-300 hover:bg-cyan-500 hover:text-black transition-all duration-300 font-bold font-orbitron tracking-widest disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isLoading ? 'CONNECTING...' : (isLoginMode ? 'LOGIN' : 'REGISTER')}
+              </button>
+              <button
+                type="button"
+                onClick={() => { setIsLoginMode(!isLoginMode); setError(''); setSuccess(''); }}
+                className="text-fuchsia-400 hover:text-fuchsia-200 text-xs disabled:opacity-50"
+                disabled={isLoading}
+              >
+                {isLoginMode ? 'Need an account? Register' : 'Already have an account? Login'}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    </main>
+  );
+};
+
 // === components/SystemInfoPanel.jsx ===
-const SystemInfoPanel = () => {
+const SystemInfoPanel = ({ currentUser, onLogout }) => {
   const [time, setTime] = useState(new Date());
 
   useEffect(() => {
@@ -235,21 +358,14 @@ const SystemInfoPanel = () => {
     return () => clearInterval(timerId);
   }, []);
 
-  const formatTime = (date) => {
-    return date.toLocaleTimeString('en-US', { hour12: false });
-  };
-  
+  const formatTime = (date) => date.toLocaleTimeString('en-US', { hour12: false });
   const formatDate = (date) => {
     const year = date.getFullYear();
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     const day = date.getDate().toString().padStart(2, '0');
     return `${year}-${month}-${day}`;
-  }
+  };
   
-  const randomHex = (length) => {
-    return Array.from({length}, () => Math.floor(Math.random() * 16).toString(16)).join('');
-  }
-
   return (
     <div className="absolute top-4 right-4 text-xs text-cyan-400 p-4 border border-cyan-700/50 bg-black/30 backdrop-blur-sm hidden md:block w-64 shadow-lg shadow-cyan-500/10">
       <div className="flex justify-between items-center border-b border-cyan-700/50 pb-1 mb-2">
@@ -258,21 +374,17 @@ const SystemInfoPanel = () => {
       </div>
       <p><span className="text-gray-500">SESSION TIME:</span> {formatTime(time)}</p>
       <p><span className="text-gray-500">SYSTEM DATE:</span> {formatDate(time)}</p>
+      <p><span className="text-gray-500">AGENT ID:</span> <span className="text-fuchsia-400">{currentUser.toUpperCase()}</span></p>
       <p><span className="text-gray-500">CONNECTION:</span> <span className="text-green-400">SECURE</span></p>
-      <p><span className="text-gray-500">UPLINK ID:</span> {randomHex(8).toUpperCase()}</p>
+      
       <div className="mt-2 pt-2 border-t border-cyan-700/50">
-        <p>CORE TEMP: <span className="text-fuchsia-400">45.2°C</span></p>
-        <div className="w-full bg-gray-700/50 h-2 mt-1 border border-cyan-900">
-            <div className="bg-fuchsia-500 h-full" style={{width: '45.2%'}}></div>
-        </div>
+        <button
+          onClick={onLogout}
+          className="w-full text-center py-1 bg-red-500/20 border border-red-500 text-red-300 hover:bg-red-500 hover:text-black transition-colors duration-300"
+        >
+          LOGOUT
+        </button>
       </div>
-      <div className="mt-2">
-        <p>MEMORY USAGE: <span className="text-yellow-400">67.8%</span></p>
-        <div className="w-full bg-gray-700/50 h-2 mt-1 border border-cyan-900">
-            <div className="bg-yellow-500 h-full" style={{width: '67.8%'}}></div>
-        </div>
-      </div>
-      <p className="mt-2 text-cyan-600 animate-flicker">_//: ALL SYSTEMS NOMINAL</p>
     </div>
   );
 };
@@ -299,35 +411,39 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
     if (task.isCompleting && !isExiting) {
       setIsExiting(true);
       setTimeout(() => {
-        onRemove(task.id);
-      }, 800); // Match exit animation duration
+        onRemove(task._id);
+      }, 800);
     }
-  }, [task.isCompleting, onRemove, task.id, isExiting]);
+  }, [task.isCompleting, onRemove, task._id, isExiting]);
   
   clickHandlerRef.current = () => setShowDetails(s => !s);
-
+  
   const handlePointerDown = (e) => {
     e.currentTarget.style.userSelect = 'none';
     pressStartTime.current = Date.now();
     longPressTimer.current = setTimeout(() => {
         onEdit(task);
+        longPressTimer.current = null;
     }, 500);
   };
 
   const handlePointerUp = (e) => {
       e.currentTarget.style.userSelect = 'auto';
-      clearTimeout(longPressTimer.current);
-      const pressDuration = Date.now() - pressStartTime.current;
-      if (pressDuration < 500) {
-          if (clickHandlerRef.current) {
-              clickHandlerRef.current();
-          }
+      if(longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+        const pressDuration = Date.now() - pressStartTime.current;
+        if (pressDuration < 500) {
+            if (clickHandlerRef.current) {
+                clickHandlerRef.current();
+            }
+        }
       }
   };
   
-  const handlePointerLeave = (e) => {
-      e.currentTarget.style.userSelect = 'auto';
-      clearTimeout(longPressTimer.current);
+  const handlePointerLeave = () => {
+    if(longPressTimer.current) {
+        clearTimeout(longPressTimer.current);
+    }
   };
 
   const formatTimestamp = (date) => {
@@ -401,7 +517,7 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
             onClick={(e) => {
               e.stopPropagation();
               if (!task.isCompleting) {
-                onComplete(task.id);
+                onComplete(task._id);
               }
             }}
             disabled={task.isCompleting}
@@ -421,15 +537,10 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
   );
 };
 
-
-// === App.jsx ===
-const App = () => {
-  const [tasks, setTasks] = useState([
-      { id: 1, text: "Connect to command console", details: "Check mission logs and familiarize with the UI.", priority: "High", isCompleting: false, createdAt: new Date() },
-      { id: 2, text: "Add new mission targets", details: "Use the input fields below to add new tasks to the list.", priority: "Medium", isCompleting: false, createdAt: new Date() },
-      { id: 3, text: "Neutralize a target", details: "Click the priority label (e.g. // HIGH) to complete a task.", priority: "Low", isCompleting: false, createdAt: new Date() },
-      { id: 4, text: "Edit a target", details: "Long-press or long-click on a mission log to load it into the editor below.", priority: "Medium", isCompleting: false, createdAt: new Date() },
-  ]);
+// === MissionPlanner.jsx (The main app view for logged-in users) ===
+const MissionPlanner = ({ auth, onLogout }) => {
+  const { token, username } = auth;
+  const [tasks, setTasks] = useState([]);
   const [newTask, setNewTask] = useState('');
   const [newTaskDetails, setNewTaskDetails] = useState('');
   const [newPriority, setNewPriority] = useState('Medium');
@@ -437,6 +548,25 @@ const App = () => {
   const [flashingTaskIndex, setFlashingTaskIndex] = useState(0);
   const [confirmationMessage, setConfirmationMessage] = useState('');
   const [editingTask, setEditingTask] = useState(null);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    const fetchTasks = async () => {
+        try {
+            const response = await fetch(`${API_URL}/tasks`, {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Failed to fetch tasks');
+            const data = await response.json();
+            setTasks(data);
+        } catch (err) {
+            setError('// CONNECTION FAILED: Could not fetch tasks');
+            console.error(err);
+        }
+    };
+    fetchTasks();
+  }, [token]);
+
 
   const confirmationMessages = [
     'TARGET NEUTRALIZED',
@@ -446,90 +576,16 @@ const App = () => {
   ];
 
   useEffect(() => {
-    const canvas = document.getElementById('particle-canvas');
-    const ctx = canvas.getContext('2d');
-
-    const setCanvasDimensions = () => {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
-    };
-    setCanvasDimensions();
-    
-    const symbols = '!@#$%^&*()_+-=[]{}|;:\'",./<>?';
-    const nums = '0123456789';
-    const characters = symbols + nums;
-
-    const fontSize = 16;
-    let columns = Math.floor(canvas.width / fontSize);
-
-    const drops = [];
-    for (let x = 0; x < columns; x++) {
-        drops[x] = 1;
-    }
-
-    const draw = () => {
-        ctx.fillStyle = 'rgba(1, 2, 13, 0.05)';
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-        ctx.fillStyle = '#0f0'; // Green text
-        ctx.font = `${fontSize}px monospace`;
-
-        for (let i = 0; i < drops.length; i++) {
-            const text = characters.charAt(Math.floor(Math.random() * characters.length));
-            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
-
-            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) {
-                drops[i] = 0;
-            }
-            drops[i]++;
-        }
-    };
-
-    let intervalId = setInterval(draw, 33);
-
-    const handleResize = () => {
-        clearInterval(intervalId);
-        setCanvasDimensions();
-        columns = Math.floor(window.innerWidth / fontSize);
-        drops.length = 0;
-        for (let x = 0; x < columns; x++) {
-            drops[x] = 1;
-        }
-        intervalId = setInterval(draw, 33);
-    };
-
-    window.addEventListener('resize', handleResize);
-
-    return () => {
-        window.removeEventListener('resize', handleResize);
-        clearInterval(intervalId);
-    };
-  }, []);
-
-  useEffect(() => {
     const activeTasks = tasks.filter(t => !t.isCompleting);
     if (activeTasks.length === 0) {
       setFlashingTaskIndex(-1);
       return;
     };
-
     const intervalId = setInterval(() => {
       setFlashingTaskIndex(prevIndex => (prevIndex + 1) % activeTasks.length);
     }, 800); 
-
     return () => clearInterval(intervalId);
   }, [tasks]);
-
-
-  const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
-  
-  const sortTasks = (tasksArray) => {
-    return [...tasksArray].sort((a, b) => (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0));
-  };
-
-  useEffect(() => {
-    setTasks(prevTasks => sortTasks(prevTasks));
-  }, []);
 
   useEffect(() => {
       if (editingTask) {
@@ -545,29 +601,49 @@ const App = () => {
       }
   }, [editingTask]);
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (newTask.trim() === '') return;
 
-    if (editingTask) {
-        const updatedTask = {
-            ...editingTask,
-            text: newTask.trim(),
-            details: newTaskDetails.trim(),
-            priority: newPriority,
-        };
-        setTasks(prevTasks => sortTasks(prevTasks.map(t => t.id === editingTask.id ? updatedTask : t)));
-        setEditingTask(null);
-    } else {
-        const taskToAdd = {
-          id: Date.now().toString(36) + Math.random().toString(36).substring(2),
-          text: newTask.trim(),
-          details: newTaskDetails.trim(),
-          priority: newPriority,
-          isCompleting: false,
-          createdAt: new Date(),
-        };
-        setTasks(prevTasks => sortTasks([...prevTasks, taskToAdd]));
+    try {
+        if (editingTask) {
+            const updatedTaskData = {
+                text: newTask.trim(),
+                details: newTaskDetails.trim(),
+                priority: newPriority,
+            };
+            const response = await fetch(`${API_URL}/tasks/${editingTask._id}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(updatedTaskData)
+            });
+            if (!response.ok) throw new Error('Failed to update task');
+            const updatedTask = await response.json();
+            setTasks(prevTasks => prevTasks.map(t => t._id === editingTask._id ? updatedTask : t));
+            setEditingTask(null);
+        } else {
+            const taskToAdd = {
+              text: newTask.trim(),
+              details: newTaskDetails.trim(),
+              priority: newPriority,
+            };
+            const response = await fetch(`${API_URL}/tasks`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify(taskToAdd)
+            });
+            if (!response.ok) throw new Error('Failed to add task');
+            const addedTask = await response.json();
+            setTasks(prevTasks => [...prevTasks, addedTask]);
+        }
+    } catch (err) {
+        setError(`// ACTION FAILED: ${err.message}`);
     }
   };
 
@@ -575,10 +651,11 @@ const App = () => {
       setEditingTask(null);
   };
 
-  const handleCompleteTask = (id) => {
+  const handleDeleteTask = async (id) => {
+    // Visually mark for deletion immediately
     setTasks(prevTasks =>
       prevTasks.map(task =>
-        task.id === id ? { ...task, isCompleting: true } : task
+        task._id === id ? { ...task, isCompleting: true } : task
       )
     );
     const randomMsg = confirmationMessages[Math.floor(Math.random() * confirmationMessages.length)];
@@ -586,10 +663,27 @@ const App = () => {
     setTimeout(() => {
         setConfirmationMessage('');
     }, 2000);
-  };
 
-  const handleRemoveTask = (id) => {
-     setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
+    // After animation, make the API call
+    setTimeout(async () => {
+        try {
+            const response = await fetch(`${API_URL}/tasks/${id}`, {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            if (!response.ok) throw new Error('Failed to delete task from server');
+            // Remove from state for real
+            setTasks(prevTasks => prevTasks.filter(task => task._id !== id));
+        } catch (err) {
+            setError(`// SYNC ERROR: ${err.message}`);
+            // If API fails, revert the visual change
+            setTasks(prevTasks =>
+                prevTasks.map(task =>
+                    task._id === id ? { ...task, isCompleting: false } : task
+                )
+            );
+        }
+    }, 800); // Wait for animation to finish
   };
   
   const priorities = ['Low', 'Medium', 'High'];
@@ -600,10 +694,14 @@ const App = () => {
   };
 
   const activeTasks = tasks.filter(t => !t.isCompleting);
+  const sortedTasks = [...tasks].sort((a, b) => {
+    const priorityOrder = { 'High': 3, 'Medium': 2, 'Low': 1 };
+    return (priorityOrder[b.priority] || 0) - (priorityOrder[a.priority] || 0);
+  });
 
   return (
     <>
-      <SystemInfoPanel />
+      <SystemInfoPanel currentUser={username} onLogout={onLogout} />
       <main className="min-h-screen flex flex-col items-center justify-center text-cyan-300 p-4 sm:p-6 md:p-8">
         
         {confirmationMessage && (
@@ -623,21 +721,22 @@ const App = () => {
                       <span className="header-bracket">]</span>
                   </div>
                   <p className="text-fuchsia-400 mt-2 animate-flicker text-sm">// STATUS: {activeTasks.length} TARGETS ACTIVE</p>
+                  {error && <p className="text-red-500 text-xs mt-1 animate-flicker">{error}</p>}
               </header>
 
               <div className="flex-grow my-4 overflow-y-auto pr-2 border-t-2 border-b-2 border-cyan-800/50 py-2">
                   {tasks.length > 0 ? (
                     <ul>
-                      {tasks.map((task, index) => {
-                          const activeTaskIndex = activeTasks.findIndex(t => t.id === task.id);
+                      {sortedTasks.map((task) => {
+                          const activeTaskIndex = activeTasks.findIndex(t => t._id === task._id);
                         return (
                           <TaskItem 
-                            key={task.id} 
+                            key={task._id} 
                             task={task} 
-                            onComplete={handleCompleteTask} 
-                            onRemove={handleRemoveTask}
+                            onComplete={handleDeleteTask} 
+                            onRemove={() => {}} // Remove is handled by handleDeleteTask's timeout
                             onEdit={setEditingTask}
-                            isEditing={editingTask?.id === task.id}
+                            isEditing={editingTask?._id === task._id}
                             isFlashing={!editingTask && activeTaskIndex === flashingTaskIndex}
                           />
                         )
@@ -650,7 +749,6 @@ const App = () => {
                       </div>
                   )}
               </div>
-
 
               <footer className="w-full pt-2">
                 <form onSubmit={handleSubmit}>
@@ -716,6 +814,86 @@ const App = () => {
     </>
   );
 };
+
+// === App.jsx (Main container with auth logic) ===
+const App = () => {
+  const [auth, setAuth] = useState(() => {
+    const token = localStorage.getItem('mission_planner_token');
+    const username = localStorage.getItem('mission_planner_currentUser');
+    return token && username ? { token, username } : null;
+  });
+
+  useEffect(() => {
+    const canvas = document.getElementById('particle-canvas');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+
+    const setCanvasDimensions = () => {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    };
+    setCanvasDimensions();
+    
+    const symbols = '!@#$%^&*()_+-=[]{}|;:\'",./<>?';
+    const nums = '0123456789';
+    const characters = symbols + nums;
+
+    const fontSize = 16;
+    let columns = Math.floor(canvas.width / fontSize);
+
+    const drops = [];
+    for (let x = 0; x < columns; x++) drops[x] = 1;
+
+    const draw = () => {
+        ctx.fillStyle = 'rgba(1, 2, 13, 0.05)';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#0f0';
+        ctx.font = `${fontSize}px monospace`;
+
+        for (let i = 0; i < drops.length; i++) {
+            const text = characters.charAt(Math.floor(Math.random() * characters.length));
+            ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+            if (drops[i] * fontSize > canvas.height && Math.random() > 0.975) drops[i] = 0;
+            drops[i]++;
+        }
+    };
+
+    let intervalId = setInterval(draw, 33);
+    const handleResize = () => {
+        clearInterval(intervalId);
+        setCanvasDimensions();
+        columns = Math.floor(window.innerWidth / fontSize);
+        drops.length = 0;
+        for (let x = 0; x < columns; x++) drops[x] = 1;
+        intervalId = setInterval(draw, 33);
+    };
+
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+        window.removeEventListener('resize', handleResize);
+        clearInterval(intervalId);
+    };
+  }, []);
+
+  const handleAuthSuccess = (authData) => {
+    localStorage.setItem('mission_planner_token', authData.token);
+    localStorage.setItem('mission_planner_currentUser', authData.username);
+    setAuth(authData);
+  };
+
+  const handleLogout = () => {
+    localStorage.removeItem('mission_planner_token');
+    localStorage.removeItem('mission_planner_currentUser');
+    setAuth(null);
+  };
+
+  if (!auth) {
+    return <AuthScreen onAuthSuccess={handleAuthSuccess} />;
+  }
+
+  return <MissionPlanner auth={auth} onLogout={handleLogout} />;
+}
 
 // === Render logic ===
 const rootElement = document.getElementById('root');
