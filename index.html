@@ -192,10 +192,10 @@
 
       @keyframes pulsate-bar-glow {
         0%, 100% {
-          box-shadow: 0 0 4px 1px rgba(217, 70, 239, 0.4);
+          box-shadow: 0 0 2px 0px rgba(217, 70, 239, 0.7);
         }
         50% {
-          box-shadow: 0 0 7px 2px rgba(217, 70, 239, 0.7);
+          box-shadow: 0 0 3px 0px rgba(217, 70, 239, 0.9);
         }
       }
       .animate-bar-glow {
@@ -307,14 +307,15 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
   clickHandlerRef.current = () => setShowDetails(s => !s);
 
   const handlePointerDown = (e) => {
-    e.target.style.userSelect = 'none';
+    e.currentTarget.style.userSelect = 'none';
     pressStartTime.current = Date.now();
     longPressTimer.current = setTimeout(() => {
         onEdit(task);
     }, 500);
   };
+
   const handlePointerUp = (e) => {
-      e.target.style.userSelect = 'auto';
+      e.currentTarget.style.userSelect = 'auto';
       clearTimeout(longPressTimer.current);
       const pressDuration = Date.now() - pressStartTime.current;
       if (pressDuration < 500) {
@@ -322,6 +323,11 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
               clickHandlerRef.current();
           }
       }
+  };
+  
+  const handlePointerLeave = (e) => {
+      e.currentTarget.style.userSelect = 'auto';
+      clearTimeout(longPressTimer.current);
   };
 
   const formatTimestamp = (date) => {
@@ -382,7 +388,7 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
       className={`${baseClasses} ${stateClasses} ${themeClasses} ${flashingClass} ${editingClass}`} 
       onPointerDown={handlePointerDown}
       onPointerUp={handlePointerUp}
-      onPointerLeave={handlePointerUp}
+      onPointerLeave={handlePointerLeave}
     >
       <div className={`absolute left-0 top-0 h-full w-1.5 ${config.barColor} ${task.priority === 'High' ? 'animate-bar-glow' : ''}`}></div>
       <div className="flex items-center justify-between pl-4">
