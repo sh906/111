@@ -265,19 +265,13 @@ const AuthScreen = ({ onAuthSuccess }) => {
         throw new Error(data.message || 'Authentication failed');
       }
       
+      // Both login and register now return a token.
       if (isLoginMode) {
         onAuthSuccess({ token: data.token, username });
       } else {
-        setSuccess('// Registration successful. Logging in...');
-        // Automatically log in after successful registration
-        const loginResponse = await fetch(`${API_URL}/auth/login`, {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json' },
-           body,
-        });
-        const loginData = await loginResponse.json();
-        if(!loginResponse.ok) throw new Error(loginData.message || 'Auto-login failed');
-        setTimeout(() => onAuthSuccess({ token: loginData.token, username }), 1500);
+        setSuccess('// Registration successful. Access granted.');
+        // The token is returned directly from the register endpoint
+        setTimeout(() => onAuthSuccess({ token: data.token, username }), 1500);
       }
     } catch (err) {
       setError(`// ${err.message}`);

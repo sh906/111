@@ -41,7 +41,18 @@ router.post('/register', async (req, res) => {
         const tasksToCreate = initialTasks.map(task => ({ ...task, user: savedUser._id }));
         await Task.insertMany(tasksToCreate);
 
-        res.status(201).json({ message: 'User registered successfully' });
+        // Create payload for JWT
+        const payload = {
+            user: {
+                id: savedUser.id
+            }
+        };
+
+        // Sign and return token
+        jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: '5h' }, (err, token) => {
+            if (err) throw err;
+            res.status(201).json({ token });
+        });
 
     } catch (err) {
         console.error(err.message);
