@@ -1,9 +1,8 @@
-
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const User = require('../models/User');
-const Task = require('../models/Task');
+const { PrismaClient } = require('@prisma/client');
+const prisma = new PrismaClient();
 
 const router = express.Router();
 
@@ -25,26 +24,38 @@ router.post('/register', async (req, res) => {
     }
 
     try {
-        let user = await User.findOne({ username });
-        if (user) {
+        const existingUser = await prisma.user.findUnique({
+            where: { username },
+        });
+
+        if (existingUser) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        user = new User({ username, password });
-
         const salt = await bcrypt.genSalt(10);
-        user.password = await bcrypt.hash(password, salt);
+        const hashedPassword = await bcrypt.hash(password, salt);
 
-        const savedUser = await user.save();
+        const newUser = await prisma.user.create({
+            data: {
+                username,
+                password: hashedPassword,
+            },
+        });
         
         // Create default tasks for the new user
-        const tasksToCreate = initialTasks.map(task => ({ ...task, user: savedUser._id }));
-        await Task.insertMany(tasksToCreate);
+        const tasksToCreate = initialTasks.map(task => ({
+            ...task,
+            authorId: newUser.id
+        }));
+
+        await prisma.task.createMany({
+            data: tasksToCreate,
+        });
 
         // Create payload for JWT
         const payload = {
             user: {
-                id: savedUser.id
+                id: newUser.id
             }
         };
 
@@ -70,7 +81,10 @@ router.post('/login', async (req, res) => {
     }
 
     try {
-        const user = await User.findOne({ username });
+        const user = await prisma.user.findUnique({
+            where: { username }
+        });
+
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
@@ -96,6 +110,5 @@ router.post('/login', async (req, res) => {
         res.status(500).send('Server error');
     }
 });
-
 
 module.exports = router;

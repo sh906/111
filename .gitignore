@@ -5,6 +5,7 @@
 # Environment Variables
 .env
 /backend/.env
+/backend/prisma/.env
 
 # Logs
 logs
@@ -16,3 +17,6 @@ yarn-error.log*
 # Build output
 dist
 build
+
+# Prisma
+/backend/prisma/migrations

@@ -1,6 +1,4 @@
-
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -31,11 +29,5 @@ app.use(express.json());
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 
-// Database Connection
-mongoose.connect(process.env.MONGO_URI)
-    .then(() => console.log('MongoDB Connected'))
-    .catch(err => console.log(err));
-
-// Vercel handles the server listening part, so we remove app.listen()
-// and export the app instance.
+// Vercel handles the server listening part, so we export the app instance.
 module.exports = app;
