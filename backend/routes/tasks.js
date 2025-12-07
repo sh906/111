@@ -1,4 +1,3 @@
-
 const express = require('express');
 const auth = require('../middleware/authMiddleware');
 const { PrismaClient } = require('@prisma/client');
