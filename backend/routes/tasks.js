@@ -1,3 +1,4 @@
+
 const express = require('express');
 const auth = require('../middleware/authMiddleware');
 const { PrismaClient } = require('@prisma/client');
@@ -44,10 +45,15 @@ router.post('/', auth, async (req, res) => {
 // @desc    Update a task
 router.put('/:id', auth, async (req, res) => {
     const { text, details, priority } = req.body;
+    const taskId = parseInt(req.params.id);
+
+    if (isNaN(taskId)) {
+        return res.status(400).json({ msg: 'Invalid task ID' });
+    }
 
     try {
         const task = await prisma.task.findUnique({
-            where: { id: req.params.id }
+            where: { id: taskId }
         });
 
         if (!task) return res.status(404).json({ msg: 'Task not found' });
@@ -58,7 +64,7 @@ router.put('/:id', auth, async (req, res) => {
         }
         
         const updatedTask = await prisma.task.update({
-            where: { id: req.params.id },
+            where: { id: taskId },
             data: {
                 text,
                 details,
@@ -77,9 +83,15 @@ router.put('/:id', auth, async (req, res) => {
 // @route   DELETE /api/tasks/:id
 // @desc    Delete a task
 router.delete('/:id', auth, async (req, res) => {
+    const taskId = parseInt(req.params.id);
+    
+    if (isNaN(taskId)) {
+        return res.status(400).json({ msg: 'Invalid task ID' });
+    }
+
     try {
         const task = await prisma.task.findUnique({
-            where: { id: req.params.id }
+            where: { id: taskId }
         });
 
         if (!task) return res.status(404).json({ msg: 'Task not found' });
@@ -90,7 +102,7 @@ router.delete('/:id', auth, async (req, res) => {
         }
         
         await prisma.task.delete({
-            where: { id: req.params.id }
+            where: { id: taskId }
         });
         
         res.json({ msg: 'Task removed' });

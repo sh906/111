@@ -17,6 +17,3 @@ yarn-error.log*
 # Build output
 dist
 build
-
-# Prisma
-/backend/prisma/migrations
