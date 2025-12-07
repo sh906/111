@@ -5,9 +5,8 @@
 # Environment Variables - IMPORTANT
 .env
 /backend/.env
-/backend/prisma/.env
 
-# Prisma
+# Prisma - The client is generated, so it doesn't need to be in git.
 /backend/prisma/client
 
 # Logs
