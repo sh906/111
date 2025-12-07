@@ -193,7 +193,6 @@
 }
 </script>
 <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-<link rel="stylesheet" href="/index.css">
 </head>
   <body>
     <canvas id="particle-canvas"></canvas>
@@ -285,6 +284,20 @@ const TaskItem = ({ task, onComplete, onRemove, isFlashing }) => {
       }, 800); // Match exit animation duration
     }
   }, [task.isCompleting, onRemove, task.id, isExiting]);
+
+  const formatTimestamp = (date) => {
+    if (!date) return 'TIMESTAMP N/A';
+    const d = new Date(date);
+    if (isNaN(d.getTime())) return 'INVALID TIMESTAMP';
+    
+    return d.toLocaleString('sv-SE', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
+  };
   
   const priorityConfig = {
     High: {
@@ -314,7 +327,7 @@ const TaskItem = ({ task, onComplete, onRemove, isFlashing }) => {
   };
   const config = priorityConfig[task.priority] || priorityConfig['Medium'];
 
-  const baseClasses = 'p-2 my-1 border border-transparent transition-all duration-300 cursor-pointer relative overflow-hidden rounded-md';
+  const baseClasses = 'p-3 my-1 border border-transparent transition-all duration-300 cursor-pointer relative overflow-hidden rounded-md';
   const stateClasses = isExiting 
     ? 'task-item-completing' 
     : (isEntering ? 'task-item-enter' : 'task-item-enter-active');
@@ -327,7 +340,10 @@ const TaskItem = ({ task, onComplete, onRemove, isFlashing }) => {
       onClick={() => setShowDetails(!showDetails)}
     >
       <div className="flex items-center justify-between">
-        <span className={`flex-grow pr-4 ${config.textColor}`}>{task.text}</span>
+        <div className="flex-grow pr-4">
+            <p className="text-xs text-cyan-600/80 mb-1">// LOGGED: {formatTimestamp(task.createdAt)}</p>
+            <p className={`${config.textColor}`}>{task.text}</p>
+        </div>
         <div className="flex items-center flex-shrink-0 gap-4">
           <span className={`text-xs font-bold ${config.labelColor} ${config.labelGlow}`}>
             // {task.priority.toUpperCase()}
@@ -360,9 +376,9 @@ const TaskItem = ({ task, onComplete, onRemove, isFlashing }) => {
 // === App.jsx ===
 const App = () => {
   const [tasks, setTasks] = useState([
-      { id: 1, text: "Connect to command console", details: "Check mission logs and familiarize with the UI.", priority: "High", isCompleting: false },
-      { id: 2, text: "Add new mission targets", details: "Use the input fields below to add new tasks to the list.", priority: "Medium", isCompleting: false },
-      { id: 3, text: "Neutralize a target", details: "Click the checkmark button to complete a task.", priority: "Low", isCompleting: false },
+      { id: 1, text: "Connect to command console", details: "Check mission logs and familiarize with the UI.", priority: "High", isCompleting: false, createdAt: new Date() },
+      { id: 2, text: "Add new mission targets", details: "Use the input fields below to add new tasks to the list.", priority: "Medium", isCompleting: false, createdAt: new Date() },
+      { id: 3, text: "Neutralize a target", details: "Click the checkmark button to complete a task.", priority: "Low", isCompleting: false, createdAt: new Date() },
   ]);
   const [newTask, setNewTask] = useState('');
   const [newTaskDetails, setNewTaskDetails] = useState('');
@@ -473,6 +489,7 @@ const App = () => {
       details: newTaskDetails.trim(),
       priority: newPriority,
       isCompleting: false,
+      createdAt: new Date(),
     };
     setTasks(prevTasks => sortTasks([...prevTasks, taskToAdd]));
     setNewTask('');
@@ -620,7 +637,5 @@ const rootElement = document.getElementById('root');
 const root = ReactDOM.createRoot(rootElement);
 root.render(<App />);
     </script>
-  <script type="module" src="/index.tsx"></script>
-</body>
+  </body>
 </html>
-```
