@@ -406,10 +406,10 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
     if (task.isCompleting && !isExiting) {
       setIsExiting(true);
       setTimeout(() => {
-        onRemove(task._id);
+        onRemove(task.id);
       }, 800);
     }
-  }, [task.isCompleting, onRemove, task._id, isExiting]);
+  }, [task.isCompleting, onRemove, task.id, isExiting]);
   
   clickHandlerRef.current = () => setShowDetails(s => !s);
   
@@ -512,7 +512,7 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
             onClick={(e) => {
               e.stopPropagation();
               if (!task.isCompleting) {
-                onComplete(task._id);
+                onComplete(task.id);
               }
             }}
             disabled={task.isCompleting}
@@ -607,7 +607,7 @@ const MissionPlanner = ({ auth, onLogout }) => {
                 details: newTaskDetails.trim(),
                 priority: newPriority,
             };
-            const response = await fetch(`${API_URL}/tasks/${editingTask._id}`, {
+            const response = await fetch(`${API_URL}/tasks/${editingTask.id}`, {
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
@@ -617,7 +617,7 @@ const MissionPlanner = ({ auth, onLogout }) => {
             });
             if (!response.ok) throw new Error('Failed to update task');
             const updatedTask = await response.json();
-            setTasks(prevTasks => prevTasks.map(t => t._id === editingTask._id ? updatedTask : t));
+            setTasks(prevTasks => prevTasks.map(t => t.id === editingTask.id ? updatedTask : t));
             setEditingTask(null);
         } else {
             const taskToAdd = {
@@ -650,7 +650,7 @@ const MissionPlanner = ({ auth, onLogout }) => {
     // Visually mark for deletion immediately
     setTasks(prevTasks =>
       prevTasks.map(task =>
-        task._id === id ? { ...task, isCompleting: true } : task
+        task.id === id ? { ...task, isCompleting: true } : task
       )
     );
     const randomMsg = confirmationMessages[Math.floor(Math.random() * confirmationMessages.length)];
@@ -668,13 +668,13 @@ const MissionPlanner = ({ auth, onLogout }) => {
             });
             if (!response.ok) throw new Error('Failed to delete task from server');
             // Remove from state for real
-            setTasks(prevTasks => prevTasks.filter(task => task._id !== id));
+            setTasks(prevTasks => prevTasks.filter(task => task.id !== id));
         } catch (err) {
             setError(`// SYNC ERROR: ${err.message}`);
             // If API fails, revert the visual change
             setTasks(prevTasks =>
                 prevTasks.map(task =>
-                    task._id === id ? { ...task, isCompleting: false } : task
+                    task.id === id ? { ...task, isCompleting: false } : task
                 )
             );
         }
@@ -723,15 +723,15 @@ const MissionPlanner = ({ auth, onLogout }) => {
                   {tasks.length > 0 ? (
                     <ul>
                       {sortedTasks.map((task) => {
-                          const activeTaskIndex = activeTasks.findIndex(t => t._id === task._id);
+                          const activeTaskIndex = activeTasks.findIndex(t => t.id === task.id);
                         return (
                           <TaskItem 
-                            key={task._id} 
+                            key={task.id} 
                             task={task} 
                             onComplete={handleDeleteTask} 
                             onRemove={() => {}} // Remove is handled by handleDeleteTask's timeout
                             onEdit={setEditingTask}
-                            isEditing={editingTask?._id === task._id}
+                            isEditing={editingTask?.id === task.id}
                             isFlashing={!editingTask && activeTaskIndex === flashingTaskIndex}
                           />
                         )

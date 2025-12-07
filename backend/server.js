@@ -1,3 +1,4 @@
+
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
@@ -26,6 +27,9 @@ app.use(cors(corsOptions));
 app.use(express.json());
 
 // Routes
+app.get('/api', (req, res) => {
+  res.send('API is running...');
+});
 app.use('/api/auth', authRoutes);
 app.use('/api/tasks', taskRoutes);
 
