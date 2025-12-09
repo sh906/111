@@ -405,7 +405,7 @@ const SystemInfoPanel = ({ currentUser, onLogout }) => {
 };
 
 // === components/TaskItem.jsx ===
-const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing }) => {
+const TaskItem = ({ task, onComplete, onEdit, isEditing, isFlashing }) => {
   const [isExiting, setIsExiting] = useState(false);
   const [isEntering, setIsEntering] = useState(true);
   const [showDetails, setShowDetails] = useState(false);
@@ -422,14 +422,11 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
     }
   }, []);
   
-  useEffect(() => {
-    if (task.isCompleting && !isExiting) {
+  const handleComplete = () => {
+      if (task.isCompleting) return;
       setIsExiting(true);
-      setTimeout(() => {
-        onRemove(task.id);
-      }, 800);
-    }
-  }, [task.isCompleting, onRemove, task.id, isExiting]);
+      onComplete(task.id);
+  };
   
   clickHandlerRef.current = () => setShowDetails(s => !s);
   
@@ -507,7 +504,7 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
   const config = priorityConfig[task.priority] || priorityConfig['Medium'];
 
   const baseClasses = 'p-3 my-1 border border-transparent transition-all duration-300 cursor-pointer relative overflow-hidden rounded-md';
-  const stateClasses = isExiting 
+  const stateClasses = isExiting || task.isCompleting
     ? 'task-item-completing' 
     : (isEntering ? 'task-item-enter' : 'task-item-enter-active');
   const themeClasses = `bg-gray-900/50 ${config.hoverGlow}`;
@@ -531,9 +528,7 @@ const TaskItem = ({ task, onComplete, onRemove, onEdit, isEditing, isFlashing })
           <button
             onClick={(e) => {
               e.stopPropagation();
-              if (!task.isCompleting) {
-                onComplete(task.id);
-              }
+              handleComplete();
             }}
             disabled={task.isCompleting}
             className={`text-xs font-bold ${config.labelColor} ${config.labelGlow} bg-transparent border-none p-2 cursor-pointer transition-transform duration-200 hover:scale-110`}
@@ -608,14 +603,13 @@ const MissionPlanner = ({ username, onLogout }) => {
     if (newTask.trim() === '') return;
 
     try {
+        let updatedTasks;
         if (editingTask) {
-            const updatedTasks = tasks.map(t =>
+            updatedTasks = tasks.map(t =>
                 t.id === editingTask.id
                     ? { ...t, text: newTask.trim(), details: newTaskDetails.trim(), priority: newPriority }
                     : t
             );
-            setTasks(updatedTasks);
-            db.saveTasks(username, updatedTasks);
             setEditingTask(null);
         } else {
             const taskToAdd = {
@@ -625,10 +619,10 @@ const MissionPlanner = ({ username, onLogout }) => {
               priority: newPriority,
               createdAt: new Date().toISOString(),
             };
-            const updatedTasks = [...tasks, taskToAdd];
-            setTasks(updatedTasks);
-            db.saveTasks(username, updatedTasks);
+            updatedTasks = [...tasks, taskToAdd];
         }
+        setTasks(updatedTasks);
+        db.saveTasks(username, updatedTasks);
         setNewTask('');
         setNewTaskDetails('');
         setNewPriority('Medium');
@@ -643,24 +637,25 @@ const MissionPlanner = ({ username, onLogout }) => {
   };
 
   const handleDeleteTask = (id) => {
-    // Visually mark for deletion immediately
-    setTasks(prevTasks =>
-      prevTasks.map(task =>
-        task.id === id ? { ...task, isCompleting: true } : task
-      )
-    );
-    const randomMsg = confirmationMessages[Math.floor(Math.random() * confirmationMessages.length)];
-    setConfirmationMessage(randomMsg);
-    setTimeout(() => {
-        setConfirmationMessage('');
-    }, 2000);
+    setTasks(currentTasks => {
+        const randomMsg = confirmationMessages[Math.floor(Math.random() * confirmationMessages.length)];
+        setConfirmationMessage(randomMsg);
+        setTimeout(() => setConfirmationMessage(''), 2000);
 
-    // After animation, remove from state and local storage
-    setTimeout(() => {
-        const updatedTasks = tasks.filter(task => task.id !== id);
-        setTasks(updatedTasks);
-        db.saveTasks(username, updatedTasks);
-    }, 800);
+        const tasksWithCompletingFlag = currentTasks.map(task =>
+            task.id === id ? { ...task, isCompleting: true } : task
+        );
+
+        setTimeout(() => {
+            setTasks(prevTasks => {
+                const finalTasks = prevTasks.filter(task => task.id !== id);
+                db.saveTasks(username, finalTasks);
+                return finalTasks;
+            });
+        }, 800);
+
+        return tasksWithCompletingFlag;
+    });
   };
   
   const priorities = ['Low', 'Medium', 'High'];
@@ -710,8 +705,7 @@ const MissionPlanner = ({ username, onLogout }) => {
                           <TaskItem 
                             key={task.id} 
                             task={task} 
-                            onComplete={handleDeleteTask} 
-                            onRemove={() => {}} // Remove is handled by handleDeleteTask's timeout
+                            onComplete={handleDeleteTask}
                             onEdit={setEditingTask}
                             isEditing={editingTask?.id === task.id}
                             isFlashing={!editingTask && activeTaskIndex === flashingTaskIndex}
